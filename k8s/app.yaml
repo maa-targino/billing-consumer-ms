@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-consumer-ms
+  labels:
+    app: billing-consumer-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: billing-consumer-ms
+  template:
+    metadata:
+      labels:
+        app: billing-consumer-ms
+    spec:
+      containers:
+        - name: billing-consumer-ms
+          image: billing-consumer-ms:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            # Sobrescreve os defaults de localhost do application.properties (usados no
+            # desenvolvimento local via IDE) pelos nomes de Service internos do cluster.
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres-service:5432/billing_db
+            - name: SPRING_DATASOURCE_USERNAME
+              value: postgres
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: postgres
+            - name: SPRING_RABBITMQ_HOST
+              value: rabbitmq-service
+            - name: SPRING_RABBITMQ_PORT
+              value: "5672"
+            - name: SPRING_RABBITMQ_USERNAME
+              value: guest
+            - name: SPRING_RABBITMQ_PASSWORD
+              value: guest
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-consumer-ms-service
+  labels:
+    app: billing-consumer-ms
+spec:
+  type: ClusterIP
+  selector:
+    app: billing-consumer-ms
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
